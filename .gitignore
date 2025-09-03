@@ -39,3 +39,22 @@ bin/
 
 # Logs
 *.log
+
+# Application Properties
+application*.properties
+application*.yml
+application*.yaml
+
+# Local configuration files
+*.properties
+!gradle-wrapper.properties
+
+# Environment variables
+.env
+
+# Credentials
+*.key
+*.p12
+*.jks
+*.keystore
+*.truststore

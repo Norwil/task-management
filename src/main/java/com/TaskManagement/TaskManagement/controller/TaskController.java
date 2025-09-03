@@ -1,21 +1,22 @@
 package com.TaskManagement.TaskManagement.controller;
 
 import java.net.URI;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.NoSuchElementException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
+import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
+import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
 import com.TaskManagement.TaskManagement.entity.Priority;
 import com.TaskManagement.TaskManagement.entity.Task;
+import com.TaskManagement.TaskManagement.entity.User;
 import com.TaskManagement.TaskManagement.service.TaskService;
+import com.TaskManagement.TaskManagement.service.UserService;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.data.web.PageableDefault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,84 +27,132 @@ import jakarta.validation.Valid;
 public class TaskController {
     
     private TaskService taskService;
+    private UserService userService;
     private static final Logger log = LoggerFactory.getLogger(TaskController.class);
 
     @Autowired
-    public TaskController(TaskService taskService) {
+    public TaskController(TaskService taskService, UserService userService) {
         this.taskService = taskService;
+        this.userService = userService;
+    }
+
+    /**
+     * Converts a Task entity to a TaskResponse DTO
+     */
+    private TaskResponse toTaskResponse(Task task) {
+        return new TaskResponse(
+            task.getId(),
+            task.getTitle(),
+            task.getDescription(),
+            task.isCompleted(),
+            task.getDueDate().toString(),
+            task.getPriority(),
+            task.getUser() != null ? task.getUser().getId() : null
+        );
     }
 
     @GetMapping
-    public ResponseEntity<Page<Task>> findAll(@PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
+    public ResponseEntity<Page<TaskResponse>> findAll(
+        @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
         log.info("Fetching tasks with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
         Page<Task> tasks = taskService.findAll(pageable);
-        return ResponseEntity.ok(tasks);
+        Page<TaskResponse> response = tasks.map(this::toTaskResponse);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> findById(@PathVariable Long id) {
-        Optional<Task> task = taskService.findById(id);
-        if (task.isPresent()) {
-            return ResponseEntity.ok(task.get());
-        } else {
-            return ResponseEntity.notFound().build(); // status 404
-        }
+    public ResponseEntity<TaskResponse> findById(@PathVariable Long id) {
+        log.info("Fetching task with id: {}", id);
+        Task task = taskService.findById(id)
+            .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + id));
+        return ResponseEntity.ok(toTaskResponse(task));
     }
 
     @PostMapping
-    public ResponseEntity<Task> save(@RequestBody @Valid Task task) {
-        log.info("Creating task: {}", task);
+    public ResponseEntity<TaskResponse> createTask(@RequestBody @Valid TaskRequest taskRequest) {
+        log.info("Creating task: {}", taskRequest);
+        Task task = new Task();
+        task.setTitle(taskRequest.getTitle());
+        task.setDescription(taskRequest.getDescription());
+        task.setPriority(taskRequest.getPriority());
+        task.setDueDate(LocalDateTime.parse(taskRequest.getDueDate())); // Parse String to LocalDateTime
+        if (taskRequest.getUserId() != null) {
+            User user = userService.findById(taskRequest.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + taskRequest.getUserId()));
+            task.setUser(user);
+        }
         Task savedTask = taskService.save(task);
         URI location = URI.create("/api/tasks/" + savedTask.getId());
-        return ResponseEntity.created(location).body(savedTask);
+        return ResponseEntity.created(location).body(toTaskResponse(savedTask));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Task> update(@PathVariable Long id, @RequestBody @Valid Task task) {
-        Optional<Task> taskOptional = taskService.findById(id);
-        if (!taskOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<TaskResponse> update(
+        @PathVariable Long id,
+        @RequestBody @Valid TaskRequest taskRequest) {
+        log.info("Updating task with id: {}", id);
+        Task task = taskService.findById(id)
+            .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + id));
+        task.setTitle(taskRequest.getTitle());
+        task.setDescription(taskRequest.getDescription());
+        task.setPriority(taskRequest.getPriority());
+        task.setDueDate(LocalDateTime.parse(taskRequest.getDueDate()));
+        if (taskRequest.getUserId() != null) {
+            User user = userService.findById(taskRequest.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + taskRequest.getUserId()));
+            task.setUser(user);
         }
-        task.setId(id);
         Task updatedTask = taskService.save(task);
-        return ResponseEntity.ok(updatedTask);
+        return ResponseEntity.ok(toTaskResponse(updatedTask));
     }
-
+    
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {
-        Optional<Task> taskOptional = taskService.findById(id);
-        if (!taskOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
+        log.info("Deleting task with id: {}", id);
+        taskService.findById(id)
+            .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + id));
         taskService.deleteById(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<Task>> search(@RequestParam String query) {
+    public ResponseEntity<Page<TaskResponse>> search(
+        @RequestParam String query,
+        @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
         log.info("Searching tasks with query: {}", query);
-        return ResponseEntity.ok(taskService.search(query));
+        Page<Task> tasks = taskService.search(query, pageable);
+        Page<TaskResponse> response = tasks.map(this::toTaskResponse);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/completed")
-    public ResponseEntity<List<Task>> findByCompleted(@RequestParam boolean completed) {
-        List<Task> tasks = taskService.findByCompleted(completed);
-        return ResponseEntity.ok(tasks);
+    public ResponseEntity<Page<TaskResponse>> findByCompleted(
+        @RequestParam boolean completed,
+        @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        log.info("Finding tasks with completed status: {}", completed);
+        Page<Task> tasks = taskService.findByCompleted(completed, pageable);
+        return ResponseEntity.ok(tasks.map(this::toTaskResponse));
     }
 
     @GetMapping("/priority/{priority}")
-    public ResponseEntity<List<Task>> findByPriority(@PathVariable Priority priority) {
-        List<Task> tasks = taskService.findByPriority(priority);
-        return ResponseEntity.ok(tasks);
+    public ResponseEntity<Page<TaskResponse>> findByPriority(
+        @PathVariable Priority priority,
+        @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
+        log.info("Finding tasks with priority: {}", priority);
+        Page<Task> tasks = taskService.findByPriority(priority, pageable);
+        return ResponseEntity.ok(tasks.map(this::toTaskResponse));
     }
 
-    @PutMapping("/mark-as-completed/{id}")
-    public ResponseEntity<Task> markAsCompleted(@PathVariable Long id, @RequestParam boolean completed) {
-        Optional<Task> taskOptional = taskService.findById(id);
-        if (!taskOptional.isPresent()) {
-            return ResponseEntity.notFound().build();
-        }
-        taskService.markAsCompleted(id, completed);
-        return ResponseEntity.ok(taskService.findById(id).get());
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<TaskResponse> markAsCompleted(
+        @PathVariable Long id,
+        @RequestParam boolean completed) {
+        log.info("Marking task {} as completed: {}", id, completed);
+        Task task = taskService.findById(id)
+            .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + id));
+            
+        task.setCompleted(completed);
+        Task updatedTask = taskService.save(task);
+        return ResponseEntity.ok(toTaskResponse(updatedTask));
     }
 }

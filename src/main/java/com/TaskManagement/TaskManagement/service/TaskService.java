@@ -1,6 +1,5 @@
 package com.TaskManagement.TaskManagement.service;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.NoSuchElementException;
 
@@ -39,16 +38,20 @@ public class TaskService {
     }
 
     /**
-     * Retrieves tasks by title or description containing the query
-     * @param query the query to search for 
-     * @return a list of tasks that match the query
-     * @throw IllegalArgumentException if the query is null or empty
+     * Retrieves tasks by title or description containing the query with pagination
+     * @param query the query to search for
+     * @param pageable pagination and sorting parameters
+     * @return a page of tasks that match the query
+     * @throws IllegalArgumentException if the query is null or empty, or if pageable is null
      */
-    public List<Task> search(String query) {
+    public Page<Task> search(String query, Pageable pageable) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("Search query cannot be empty");
         }
-        return taskRepository.findByTitleOrDescriptionContainingIgnoreCase(query);
+        if (pageable == null) {
+            throw new IllegalArgumentException("Pageable cannot be null");
+        }
+        return taskRepository.searchByTitleOrDescriptionContainingIgnoreCase(query, pageable);
     }
 
     /**
@@ -89,25 +92,34 @@ public class TaskService {
     }
 
     /**
-     * Finds all tasks by completed status
-     * @param completed the completed status of the tasks to find
-     * @return a list of tasks with the specified completed status
+     * Retrieves tasks by completion status with pagination
+     * @param completed the completion status to filter by
+     * @param pageable pagination and sorting parameters
+     * @return a page of tasks with the specified completion status
+     * @throws IllegalArgumentException if pageable is null
      */
-    public List<Task> findByCompleted(boolean completed) {
-        return taskRepository.findByCompleted(completed);
+    public Page<Task> findByCompleted(boolean completed, Pageable pageable) {
+        if (pageable == null) {
+            throw new IllegalArgumentException("Pageable cannot be null");
+        }
+        return taskRepository.findByCompleted(completed, pageable);
     }
     
     /**
-     * Finds all tasks by priority
-     * @param priority the priority of the tasks to find
-     * @return a list of tasks with the specified priority
-     * @throws IllegalArgumentException if the priority is null
+     * Retrieves tasks by priority with pagination
+     * @param priority the priority to filter by
+     * @param pageable pagination and sorting parameters
+     * @return a page of tasks with the specified priority
+     * @throws IllegalArgumentException if pageable is null
      */
-    public List<Task> findByPriority(Priority priority) {
+    public Page<Task> findByPriority(Priority priority, Pageable pageable) {
         if (priority == null) {
             throw new IllegalArgumentException("Priority cannot be null.");
         }
-        return taskRepository.findByPriority(priority);
+        if (pageable == null) {
+            throw new IllegalArgumentException("Pageable cannot be null");
+        }
+        return taskRepository.findByPriority(priority, pageable);
     }
 
     /**

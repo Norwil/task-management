@@ -1,27 +1,24 @@
 package com.TaskManagement.TaskManagement.service;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import java.time.LocalDateTime;
+import java.util.*;
+
+
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import org.mockito.*;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 
-import com.TaskManagement.TaskManagement.entity.Priority;
-import com.TaskManagement.TaskManagement.entity.Task;
-import com.TaskManagement.TaskManagement.repository.TaskRepository;
+import com.TaskManagement.TaskManagement.entity.*;
+import com.TaskManagement.TaskManagement.repository.*;
 
 @ExtendWith(MockitoExtension.class)
 public class TaskServiceTest {
@@ -39,11 +36,13 @@ public class TaskServiceTest {
 
     @BeforeEach
     void setUp() {
-        task1 = new Task(1L, "Test Task 1", "Description", false, LocalDate.now().plusDays(1), Priority.MEDIUM);
-        task2 = new Task(2L, "Test Task 2", "Description", true, LocalDate.now().plusDays(2), Priority.HIGH);
-        task3 = new Task(3L, "Test Task 3", "Description", false, LocalDate.now().plusDays(3), Priority.LOW);
-        task4 = new Task(4L, "Test Task 4", "Description", true, LocalDate.now().plusDays(4), Priority.MEDIUM);
-        task5 = new Task(5L, "Test Task 5", "Description", false, LocalDate.now().plusDays(5), Priority.HIGH);
+        User user = new User(1L, "testuser", "password", "test@example.com", Role.USER, true, true, new ArrayList<>(), LocalDateTime.now(), null);
+        LocalDateTime now = LocalDateTime.now();
+        task1 = new Task(1L, "Test Task 1", "Description", false, now.plusDays(1), Priority.MEDIUM, user, now, now);
+        task2 = new Task(2L, "Test Task 2", "Description", true, now.plusDays(2), Priority.HIGH, user, now, now);
+        task3 = new Task(3L, "Test Task 3", "Description", false, now.plusDays(3), Priority.LOW, user, now, now);
+        task4 = new Task(4L, "Test Task 4", "Description", true, now.plusDays(4), Priority.MEDIUM, user, now, now);
+        task5 = new Task(5L, "Test Task 5", "Description", false, now.plusDays(5), Priority.HIGH, user, now, now);
     }
     
     @Test
@@ -125,7 +124,7 @@ public class TaskServiceTest {
     @Test
     void testSaveEmptyTitle() {
         // arrange
-        Task invalidTask = new Task(null, "    ", null, false, null, Priority.HIGH);
+        Task invalidTask = new Task(null, "    ", null, false, null, Priority.HIGH, null, null, null);
 
         // act assert
         assertThrows(IllegalArgumentException.class, () -> taskService.save(invalidTask));
@@ -157,38 +156,46 @@ public class TaskServiceTest {
     @Test
     void testFindByCompleted() {
         // arrange
-        when(taskRepository.findByCompleted(true)).thenReturn(List.of(task2, task4));
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Task> page = new PageImpl<>(List.of(task2, task4));
+        when(taskRepository.findByCompleted(true, pageable)).thenReturn(page);
 
         // act
-        List<Task> result = taskService.findByCompleted(true);
+        Page<Task> result = taskService.findByCompleted(true, pageable);
 
         // assert
-        assertEquals(2, result.size());
-        assertEquals(task2, result.get(0));
-        assertEquals(task4, result.get(1));
-        verify(taskRepository).findByCompleted(true);
+        assertEquals(2, result.getContent().size());
+        assertEquals(task2, result.getContent().get(0));
+        assertEquals(task4, result.getContent().get(1));
+        verify(taskRepository).findByCompleted(true, pageable);
     }
 
     @Test
     void testFindByPriority() {
         // arrange
-        when(taskRepository.findByPriority(Priority.HIGH)).thenReturn(List.of(task2, task4));
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Task> page = new PageImpl<>(List.of(task2, task5));
+        when(taskRepository.findByPriority(Priority.HIGH, pageable)).thenReturn(page);
 
         // act
-        List<Task> result = taskService.findByPriority(Priority.HIGH);
+        Page<Task> result = taskService.findByPriority(Priority.HIGH, pageable);
 
         // assert
-        assertEquals(2, result.size());
-        assertEquals(task2, result.get(0));
-        assertEquals(task4, result.get(1));
-        verify(taskRepository).findByPriority(Priority.HIGH);
+        assertEquals(2, result.getContent().size());
+        assertEquals(task2, result.getContent().get(0));
+        assertEquals(task5, result.getContent().get(1));
+        verify(taskRepository).findByPriority(Priority.HIGH, pageable);
     }
 
     @Test
     void testFindByPriorityNull() {
-        // arrange act assert
-        assertThrows(IllegalArgumentException.class, () -> taskService.findByPriority(null));
-        verify(taskRepository, never()).findByPriority(any(Priority.class));
+        // arrange
+        Pageable pageable = PageRequest.of(0, 10);
+        
+        // act assert
+        assertThrows(IllegalArgumentException.class, 
+            () -> taskService.findByPriority(null, pageable));
+        verify(taskRepository, never()).findByPriority(any(), any(Pageable.class));
     }
 
     @Test
@@ -214,25 +221,32 @@ public class TaskServiceTest {
     @Test
     void testSearchValidQuery() {
         // arrange
-        when(taskRepository.findByTitleOrDescriptionContainingIgnoreCase("test")).thenReturn(List.of(task1, task2, task3, task4, task5));
+        String query = "test";
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Task> page = new PageImpl<>(List.of(task1, task2, task3, task4, task5));
+        when(taskRepository.searchByTitleOrDescriptionContainingIgnoreCase(query, pageable)).thenReturn(page);
 
         // act
-        List<Task> result = taskService.search("test");
+        Page<Task> result = taskService.search(query, pageable);
 
         // assert
-        assertEquals(5, result.size());
-        assertEquals(task1, result.get(0));
-        assertEquals(task2, result.get(1));
-        assertEquals(task3, result.get(2));
-        assertEquals(task4, result.get(3));
-        assertEquals(task5, result.get(4));
-        verify(taskRepository).findByTitleOrDescriptionContainingIgnoreCase("test");
+        assertEquals(5, result.getContent().size());
+        assertEquals(task1, result.getContent().get(0));
+        assertEquals(task2, result.getContent().get(1));
+        assertEquals(task3, result.getContent().get(2));
+        assertEquals(task4, result.getContent().get(3));
+        assertEquals(task5, result.getContent().get(4));
+        verify(taskRepository).searchByTitleOrDescriptionContainingIgnoreCase(query, pageable);
     }
 
     @Test
     void testSearchEmptyQuery() {
-        // arrange act assert
-        assertThrows(IllegalArgumentException.class, () -> taskService.search("     "));
-        verify(taskRepository, never()).findByTitleOrDescriptionContainingIgnoreCase(anyString());
+        // arrange
+        Pageable pageable = PageRequest.of(0, 10);
+        
+        // act assert
+        assertThrows(IllegalArgumentException.class, 
+            () -> taskService.search("     ", pageable));
+        verify(taskRepository, never()).searchByTitleOrDescriptionContainingIgnoreCase(anyString(), any(Pageable.class));
     }
 }
