@@ -4,6 +4,7 @@ package com.TaskManagement.TaskManagement.dto.response;
 
 import com.TaskManagement.TaskManagement.entity.Priority;
 
+import com.TaskManagement.TaskManagement.entity.User;
 import lombok.*;
 
 @Getter
@@ -18,5 +19,5 @@ public class TaskResponse {
     private boolean completed;
     private String dueDate; // String for simpler JSON formatting
     private Priority priority;
-    private Long userId;
+    private AssignedUserResponseDTO assignedUser;
 }

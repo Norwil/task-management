@@ -1,8 +1,15 @@
 package com.TaskManagement.TaskManagement.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.NoSuchElementException;
 
+import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
+import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
+import com.TaskManagement.TaskManagement.mapper.TaskMapper;
+import com.TaskManagement.TaskManagement.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,17 +18,15 @@ import org.springframework.stereotype.Service;
 import com.TaskManagement.TaskManagement.entity.Priority;
 import com.TaskManagement.TaskManagement.entity.Task;
 import com.TaskManagement.TaskManagement.repository.TaskRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class TaskService {
-
     
-    private TaskRepository taskRepository;
-
-    @Autowired
-    public TaskService(TaskRepository taskRepository) {
-        this.taskRepository = taskRepository;
-    }
+    private final TaskRepository taskRepository;
+    private final TaskMapper taskMapper;
+    private final UserRepository userRepository;
 
     /**
      * Retrieves all tasks with pagination and sorting
@@ -29,12 +34,14 @@ public class TaskService {
      * @return a page of tasks
      * @throws IllegalArgumentException if pageable is null
      */
-    public Page<Task> findAll(Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> findAll(Pageable pageable) {
         if (pageable == null) {
             throw new IllegalArgumentException("Pageable cannot be null");
         }
         Page<Task> page = taskRepository.findAll(pageable);
-        return page;
+        Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
+        return response;
     }
 
     /**
@@ -44,14 +51,18 @@ public class TaskService {
      * @return a page of tasks that match the query
      * @throws IllegalArgumentException if the query is null or empty, or if pageable is null
      */
-    public Page<Task> search(String query, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> search(String query, Pageable pageable) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("Search query cannot be empty");
         }
         if (pageable == null) {
             throw new IllegalArgumentException("Pageable cannot be null");
         }
-        return taskRepository.searchByTitleOrDescriptionContainingIgnoreCase(query, pageable);
+
+        Page<Task> page = taskRepository.searchByTitleOrDescriptionContainingIgnoreCase(query, pageable);
+        Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
+        return response;
     }
 
     /**
@@ -59,24 +70,48 @@ public class TaskService {
      * @param id the id of the task to retrieve
      * @return the task with the specified id
      */
-    public Optional<Task> findById(Long id) {
-        return taskRepository.findById(id);
+    @Transactional(readOnly = true)
+    public TaskResponse findById(Long id) {
+
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Cannot find the task with id: " + id));
+
+        TaskResponse response = taskMapper.toResponseDTO(task);
+
+        return response;
     }
 
     /**
      * Saves a task to the database.
-     * @param task the task to save
+     * @param request the task to save
      * @return the saved task
-     * @throws IllegalArgumentException if the task is null or the title is empty
      */
-    public Task save(Task task) {
-        if (task == null) {
-            throw new IllegalArgumentException("Task cannot be null.");
-        }
-        if (task.getTitle() == null || task.getTitle().trim().isEmpty()) {
-            throw new IllegalArgumentException("Title cannot be empty.");
-        }
-        return taskRepository.save(task);
+    public TaskResponse save(TaskRequest request) {
+        Task tasktoSave = taskMapper.toEntity(request);
+        Task savedTask = taskRepository.save(tasktoSave);
+        TaskResponse response = taskMapper.toResponseDTO(savedTask);
+
+        return response;
+    }
+
+    /**
+     * Updates a task
+     * @param request the task to save
+     * @return the response
+     */
+    public TaskResponse update(Long id, TaskRequest request) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id));
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        task.setDueDate(LocalDateTime.parse(request.getDueDate()));
+        task.setPriority(request.getPriority());
+        task.setUser(userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id)));
+
+        Task savedTask = taskRepository.save(task);
+
+        return taskMapper.toResponseDTO(savedTask);
     }
 
     /**
@@ -85,9 +120,8 @@ public class TaskService {
      * @throws NoSuchElementException if the task is not found
      */
     public void deleteById(Long id) {
-        if (!taskRepository.findById(id).isPresent()) {
-            throw new NoSuchElementException("Task not found with id: " + id);
-        }
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + id));
         taskRepository.deleteById(id);
     }
 
@@ -98,11 +132,14 @@ public class TaskService {
      * @return a page of tasks with the specified completion status
      * @throws IllegalArgumentException if pageable is null
      */
-    public Page<Task> findByCompleted(boolean completed, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> findByCompleted(boolean completed, Pageable pageable) {
         if (pageable == null) {
             throw new IllegalArgumentException("Pageable cannot be null");
         }
-        return taskRepository.findByCompleted(completed, pageable);
+        Page<Task> page = taskRepository.findByCompleted(completed, pageable);
+        Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
+        return response;
     }
     
     /**
@@ -112,14 +149,19 @@ public class TaskService {
      * @return a page of tasks with the specified priority
      * @throws IllegalArgumentException if pageable is null
      */
-    public Page<Task> findByPriority(Priority priority, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<TaskResponse> findByPriority(Priority priority, Pageable pageable) {
         if (priority == null) {
             throw new IllegalArgumentException("Priority cannot be null.");
         }
         if (pageable == null) {
             throw new IllegalArgumentException("Pageable cannot be null");
         }
-        return taskRepository.findByPriority(priority, pageable);
+
+        Page<Task> page = taskRepository.findByPriority(priority, pageable);
+        Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
+
+        return response;
     }
 
     /**
@@ -127,14 +169,12 @@ public class TaskService {
      * @param id the id of the task to mark as completed
      * @param completed the completed status of the task to mark as completed
      */
-    public void markAsCompleted(Long id, boolean completed) {
-        Optional<Task> taskOptional = taskRepository.findById(id);
-        if (!taskOptional.isPresent()) {
-            throw new NoSuchElementException("Task not found with id: " + id);
-        }
+    public TaskResponse markAsCompleted(Long id, boolean completed) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("task not found with id: " + id));
 
-        Task task = taskOptional.get();
         task.setCompleted(completed);
         taskRepository.save(task);
+        return taskMapper.toResponseDTO(task);
     }
 }
