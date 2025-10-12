@@ -2,11 +2,13 @@ package com.TaskManagement.TaskManagement.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.NoSuchElementException;
 
 import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
 import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
+import com.TaskManagement.TaskManagement.entity.User;
 import com.TaskManagement.TaskManagement.mapper.TaskMapper;
 import com.TaskManagement.TaskManagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -176,5 +178,48 @@ public class TaskService {
         task.setCompleted(completed);
         taskRepository.save(task);
         return taskMapper.toResponseDTO(task);
+    }
+
+    /**
+     * Assign a task to a user
+     * @param taskId
+     * @param userId
+     * @return the updated Task as a TaskResponse DTO
+     * @throws NoSuchElementException if the Task or the User is not found.
+     */
+    @Transactional
+    public TaskResponse assignTaskToUser(Long taskId, Long userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + taskId));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + userId));
+
+        task.setUser(user);
+        user.getTasks().add(task);
+
+        Task savedTask = taskRepository.save(task);
+
+        return taskMapper.toResponseDTO(savedTask);
+    }
+
+    /**
+     * Unassign a task from the user
+     * @param taskId
+     * @throws NoSuchElementException if the Task is not found
+     */
+    @Transactional
+    public void unassignTaskFromUser(Long taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + taskId));
+
+        User assignedUser = task.getUser();
+
+        if (assignedUser != null) {
+            assignedUser.getTasks().remove(task);
+            task.setUser(null);
+        }
+
+        taskRepository.save(task);
     }
 }

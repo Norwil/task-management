@@ -1,21 +1,18 @@
 package com.TaskManagement.TaskManagement.controller;
 
 import java.net.URI;
-import java.time.LocalDateTime;
-import java.util.NoSuchElementException;
+
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
 import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
 import com.TaskManagement.TaskManagement.entity.Priority;
-import com.TaskManagement.TaskManagement.entity.Task;
-import com.TaskManagement.TaskManagement.entity.User;
+
 import com.TaskManagement.TaskManagement.service.TaskService;
-import com.TaskManagement.TaskManagement.service.UserService;
 
 import org.springframework.data.domain.*;
 import org.springframework.data.web.PageableDefault;
@@ -29,10 +26,10 @@ import jakarta.validation.Valid;
 public class TaskController {
     
     private final TaskService taskService;
-    private final UserService userService;
     private static final Logger log = LoggerFactory.getLogger(TaskController.class);
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
     public ResponseEntity<Page<TaskResponse>> findAll(
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
         log.info("Fetching tasks with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
@@ -41,6 +38,7 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
     public ResponseEntity<TaskResponse> findById(@PathVariable Long id) {
         log.info("Fetching task with id: {}", id);
 
@@ -48,6 +46,7 @@ public class TaskController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
     public ResponseEntity<TaskResponse> createTask(@RequestBody @Valid TaskRequest taskRequest) {
         log.info("Creating task: {}", taskRequest);
         TaskResponse response = taskService.save(taskRequest);
@@ -58,6 +57,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
     public ResponseEntity<TaskResponse> update(
         @PathVariable Long id,
         @RequestBody @Valid TaskRequest taskRequest) {
@@ -68,6 +68,7 @@ public class TaskController {
     }
     
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {
         log.info("Deleting task with id: {}", id);
         taskService.deleteById(id);
@@ -75,6 +76,7 @@ public class TaskController {
     }
 
     @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
     public ResponseEntity<Page<TaskResponse>> search(
         @RequestParam String query,
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -85,6 +87,7 @@ public class TaskController {
     }
 
     @GetMapping("/completed")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
     public ResponseEntity<Page<TaskResponse>> findByCompleted(
         @RequestParam boolean completed,
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -94,6 +97,7 @@ public class TaskController {
     }
 
     @GetMapping("/priority/{priority}")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
     public ResponseEntity<Page<TaskResponse>> findByPriority(
         @PathVariable Priority priority,
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -103,11 +107,34 @@ public class TaskController {
     }
 
     @PutMapping("/{id}/complete")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
     public ResponseEntity<TaskResponse> markAsCompleted(
         @PathVariable Long id,
         @RequestParam boolean completed) {
         log.info("Marking task {} as completed: {}", id, completed);
 
         return ResponseEntity.ok(taskService.markAsCompleted(id, completed));
+    }
+
+    @PutMapping("/{taskId}/assign/{userId}")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    public ResponseEntity<TaskResponse> assignTaskToUser(
+            @PathVariable Long taskId,
+            @PathVariable Long userId) {
+        log.info("Assign task {} to user {}", taskId, userId);
+
+        TaskResponse response = taskService.assignTaskToUser(taskId, userId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{taskId}/unassign")
+    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    public ResponseEntity<Void> unassignTaskFromUser(@PathVariable Long taskId) {
+        log.info("Unassigning task {}", taskId);
+
+        taskService.unassignTaskFromUser(taskId);
+
+        return ResponseEntity.noContent().build();
     }
 }
