@@ -33,7 +33,7 @@ public class UserController {
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<Page<UserResponse>> getAllUsers(
             @PageableDefault(page = 0, size = 10) Pageable pageable) {
         log.info("fetching users with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
@@ -42,7 +42,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<UserResponse> findUserById(@PathVariable Long id) {
         log.info("Fetching user with id: {}", id);
 
@@ -50,7 +50,7 @@ public class UserController {
     }
 
     @GetMapping("/username/{username}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<UserResponse> getUserByUsername(@PathVariable String username) {
         log.info("Fetching user with username: " + username);
 
@@ -60,7 +60,7 @@ public class UserController {
 
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
             @RequestBody @Valid UserRequest userRequest) {
@@ -71,7 +71,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/role")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<UserResponse> updateRole(
             @PathVariable Long id,
             @RequestBody @Valid RoleUpdateRequest request) {
@@ -82,7 +82,7 @@ public class UserController {
 
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         log.info("Deleting user with id: {}", id);
         userService.deleteUser(id);

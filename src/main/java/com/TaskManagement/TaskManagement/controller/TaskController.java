@@ -29,7 +29,7 @@ public class TaskController {
     private static final Logger log = LoggerFactory.getLogger(TaskController.class);
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEADER')")
     public ResponseEntity<Page<TaskResponse>> findAll(
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
         log.info("Fetching tasks with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
@@ -38,7 +38,7 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEADER')")
     public ResponseEntity<TaskResponse> findById(@PathVariable Long id) {
         log.info("Fetching task with id: {}", id);
 
@@ -46,7 +46,7 @@ public class TaskController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<TaskResponse> createTask(@RequestBody @Valid TaskRequest taskRequest) {
         log.info("Creating task: {}", taskRequest);
         TaskResponse response = taskService.save(taskRequest);
@@ -57,7 +57,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<TaskResponse> update(
         @PathVariable Long id,
         @RequestBody @Valid TaskRequest taskRequest) {
@@ -68,7 +68,7 @@ public class TaskController {
     }
     
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<Void> deleteById(@PathVariable Long id) {
         log.info("Deleting task with id: {}", id);
         taskService.deleteById(id);
@@ -76,7 +76,7 @@ public class TaskController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEADER')")
     public ResponseEntity<Page<TaskResponse>> search(
         @RequestParam String query,
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -87,7 +87,7 @@ public class TaskController {
     }
 
     @GetMapping("/completed")
-    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEADER')")
     public ResponseEntity<Page<TaskResponse>> findByCompleted(
         @RequestParam boolean completed,
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -97,7 +97,7 @@ public class TaskController {
     }
 
     @GetMapping("/priority/{priority}")
-    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('USER', 'TEAM_LEADER')")
     public ResponseEntity<Page<TaskResponse>> findByPriority(
         @PathVariable Priority priority,
         @PageableDefault(page = 0, size = 10, sort = "dueDate", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -107,7 +107,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<TaskResponse> markAsCompleted(
         @PathVariable Long id,
         @RequestParam boolean completed) {
@@ -117,7 +117,7 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}/assign/{userId}")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<TaskResponse> assignTaskToUser(
             @PathVariable Long taskId,
             @PathVariable Long userId) {
@@ -129,7 +129,7 @@ public class TaskController {
     }
 
     @PutMapping("/{taskId}/unassign")
-    @PreAuthorize("hasAnyRole('TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
     public ResponseEntity<Void> unassignTaskFromUser(@PathVariable Long taskId) {
         log.info("Unassigning task {}", taskId);
 

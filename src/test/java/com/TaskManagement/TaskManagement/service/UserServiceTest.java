@@ -282,4 +282,5 @@ class UserServiceTest {
         User capturedUser = userCaptor.getValue();
         assertEquals(ENCODED_PASSWORD, capturedUser.getPassword());
     }
+
 }

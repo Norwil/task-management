@@ -87,13 +87,22 @@ public class TaskService {
      * Saves a task to the database.
      * @param request the task to save
      * @return the saved task
+     * @throws IllegalArgumentException when request is invalid
+     * @throws NoSuchElementException when User ID is invalid
      */
     public TaskResponse save(TaskRequest request) {
-        Task tasktoSave = taskMapper.toEntity(request);
-        Task savedTask = taskRepository.save(tasktoSave);
-        TaskResponse response = taskMapper.toResponseDTO(savedTask);
+        if (request == null) {
+            throw new IllegalArgumentException("Task request cannot be null");
+        }
 
-        return response;
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + request.getUserId()));
+
+        Task taskToSave = taskMapper.toEntity(request);
+        taskToSave.setUser(user);
+
+        Task savedTask = taskRepository.save(taskToSave);
+        return taskMapper.toResponseDTO(savedTask);
     }
 
     /**
@@ -104,12 +113,13 @@ public class TaskService {
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id));
+        task.setUser(userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id)));
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setDueDate(LocalDateTime.parse(request.getDueDate()));
         task.setPriority(request.getPriority());
-        task.setUser(userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id)));
+
 
         Task savedTask = taskRepository.save(task);
 
