@@ -1,237 +1,186 @@
 package com.TaskManagement.TaskManagement.controller;
 
+
+import com.TaskManagement.TaskManagement.dto.request.PaginationRequest;
 import com.TaskManagement.TaskManagement.dto.request.RoleUpdateRequest;
 import com.TaskManagement.TaskManagement.dto.request.UserRequest;
 import com.TaskManagement.TaskManagement.dto.response.UserResponse;
 import com.TaskManagement.TaskManagement.entity.Role;
 import com.TaskManagement.TaskManagement.exception.UserNotFoundException;
 import com.TaskManagement.TaskManagement.service.UserService;
-import org.apache.coyote.Response;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.*;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+
 
 import java.util.Collections;
-import java.util.List;
-import java.util.NoSuchElementException;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
-public class UserControllerTest {
+@WebMvcTest(UserController.class)
+@Import(com.TaskManagement.TaskManagement.config.SecurityConfig.class)
+class UserControllerTest {
 
-    @Mock
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
     private UserService userService;
 
-    @InjectMocks
-    private UserController userController;
+    // Helper Objects
+    private UserRequest validUserRequest;
+    private UserResponse mockUserResponse;
+    private RoleUpdateRequest roleUpdateRequest;
 
-    @Test
-    public void testGetAllUsers_Success() {
-        // Arrange
-        Pageable pageable = PageRequest.of(0, 10);
-
-        UserResponse mockUserResponse = new UserResponse();
-        mockUserResponse.setId(1L);
-        mockUserResponse.setUsername("testuser");
-        mockUserResponse.setEmail("test@example.com");
-
-        List<UserResponse> userList = Collections.singletonList(mockUserResponse);
-        Page<UserResponse> expectedPage = new PageImpl<>(userList, pageable, 1);
-
-        when(userService.getAllUsers(pageable)).thenReturn(expectedPage);
-
-        // Act
-        ResponseEntity<Page<UserResponse>> responseEntity = userController.getAllUsers(pageable);
-
-        // Assert & Verify
-        verify(userService).getAllUsers(pageable);
-
-        assertNotNull(responseEntity);
-        assertEquals(200, responseEntity.getStatusCode().value(), "HTTP status should be 200 OK");
-
-        Page<UserResponse> actualPage = responseEntity.getBody();
-
-        assertNotNull(actualPage, "Response body should not be null");
-        assertEquals(1, actualPage.getTotalElements(), "The page should contain 1 element");
-        assertEquals("testuser", actualPage.getContent().get(0).getUsername(), "The username should match");
-    }
-
-    @Test
-    public void testFindUserByid_Success() {
-        // Arrange
-        Long userId = 42L;
-        UserResponse expectedResponse = new UserResponse();
-        expectedResponse.setId(userId);
-        expectedResponse.setUsername("testuser");
-
-        when(userService.findUserById(userId)).thenReturn(expectedResponse);
-
-        // Act
-        ResponseEntity<UserResponse> responseEntity = userController.findUserById(userId);
-
-        // Assert & Verify
-        verify(userService).findUserById(userId);
-        assertEquals(200, responseEntity.getStatusCode().value());
-        assertEquals("testuser", responseEntity.getBody().getUsername());
-    }
-
-    @Test
-    public void testGetUserByUsername_Success() {
-        // Arrange
-        String testUsername = "testuser_teamlead";
-        Long expectedId = 99L;
-
-        UserResponse expectedResponse = new UserResponse();
-        expectedResponse.setUsername(testUsername);
-        expectedResponse.setId(expectedId);
-        expectedResponse.setEmail("test@user.com");
-
-        when(userService.getUserByUsername(testUsername)).thenReturn(expectedResponse);
-
-        // Act
-        ResponseEntity<UserResponse> responseEntity = userController.getUserByUsername(testUsername);
-
-        // Assert & Verify
-        verify(userService).getUserByUsername(testUsername);
-
-        assertNotNull(responseEntity);
-        assertEquals(200, responseEntity.getStatusCode().value(), "HTTP status should be 200 OK");
-
-        UserResponse actualResponse = responseEntity.getBody();
-        assertNotNull(actualResponse, "Response body should not be null");
-        assertEquals(testUsername, actualResponse.getUsername(), "The username in the response should match the input");
-        assertEquals(expectedId, actualResponse.getId(), "The user ID in the response should match the expected ID");
-    }
-
-    @Test
-    public void testUpdateUser_Success() {
-        // Arrange
-        Long userId = 100L;
-        String newEmail = "updatedemail@test.com";
-        String newUsername = "updatedusername";
-
-        UserRequest request = new UserRequest();
-        request.setEmail(newEmail);
-        request.setUsername(newUsername);
-
-        UserResponse response = new UserResponse();
-        response.setId(userId);
-        response.setEmail(newEmail);
-        response.setUsername(newUsername);
-
-        when(userService.updateUser(userId, request)).thenReturn(response);
-
-        // Act
-        ResponseEntity<UserResponse> responseEntity = userController.updateUser(userId, request);
-
-        // Assert & Verify
-        assertNotNull(responseEntity);
-        assertEquals(200, responseEntity.getStatusCode().value(), "HTTP status should be 200 OK");
-
-        UserResponse actualResponse = responseEntity.getBody();
-        assertNotNull(actualResponse, "Response body should not be null");
-        assertEquals(userId, actualResponse.getId(), "The user ID must be preserved");
-        assertEquals(newUsername, actualResponse.getUsername(), "The username should be the updated value");
-        assertEquals(newEmail, actualResponse.getEmail(), "The email should be the the updated value");
-    }
-
-    @Test
-    public void testUpdateRole_Success() {
-        // Arrange
-        Long userId = 200L;
-        Role newRole = Role.USER;
-        RoleUpdateRequest mockRequest = new RoleUpdateRequest();
-        mockRequest.setRole(newRole);
-
-        UserResponse expectedResponse = new UserResponse();
-        expectedResponse.setId(userId);
-        expectedResponse.setUsername("role_updater");
-        expectedResponse.setRole(newRole);
-
-        when(userService.updateRole(userId, mockRequest)).thenReturn(expectedResponse);
-
-        // Act
-        ResponseEntity<UserResponse> responseEntity = userController.updateRole(userId, mockRequest);
-
-        // Assert & Verify
-        verify(userService).updateRole(userId, mockRequest);
-        assertNotNull(responseEntity, "Response entity should not be null");
-        assertEquals(200, responseEntity.getStatusCode().value(), "HTTP status should be 200 OK");
-
-        UserResponse actualResponse = responseEntity.getBody();
-        assertNotNull(actualResponse, "Response body should not be null");
-        assertEquals(newRole, actualResponse.getRole(), "The role should be 'USER'");
-        assertEquals(userId, actualResponse.getId(), "The user ID must be preserved");
-    }
-
-    @Test
-    public void testDelete_Success() {
-        // Arrange
-        Long userId = 200L;
-        doNothing().when(userService).deleteUser(userId);
-
-        // Acct
-        ResponseEntity<Void> responseEntity = userController.deleteUser(userId);
-
-        // Assert & Verify
-        verify(userService).deleteUser(userId);
-        assertNotNull(responseEntity, "Response entity should not be null");
-        assertEquals(204, responseEntity.getStatusCode().value(), "HTTP status should be 204 No Content");
-        assertEquals(null, responseEntity.getBody(), "Response body must be null for 204 No Content");
-    }
-
-    @Test
-    public void testFindUserById_NotFound() {
-        // Arrange
-        Long nonExistentUserId = 999L;
-        UserNotFoundException mockException =
-                new UserNotFoundException("User not found with ID: " + nonExistentUserId);
-        when(userService.findUserById(nonExistentUserId))
-                .thenThrow(mockException);
-
-        // Act & Assert Exception
-        UserNotFoundException thrown = assertThrows(
-                UserNotFoundException.class,
-                () -> userController.findUserById(nonExistentUserId),
-                "Expected finduserById to throw UserNotFoundException"
+    @BeforeEach
+    void setUp() {
+        validUserRequest = new UserRequest(
+                "newuser",
+                "password",
+                "new@example.com"
         );
 
-        assertEquals("User not found with ID: 999", thrown.getMessage(), "Exception message should match");
-        verify(userService).findUserById(nonExistentUserId);
+        mockUserResponse = new UserResponse(
+                2L,
+                "newuser",
+                "new@example.com",
+                Role.USER,
+                true,
+                true,
+                Collections.emptyList()
+        );
+
+        roleUpdateRequest = new RoleUpdateRequest(Role.TEAM_LEADER);
+    }
+
+    private String asJsonString(final Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // --- SECURITY TESTS (Access Control: Only TEAM_LEADER) ---
+
+    @Test
+    void getAllUsers_ShouldReturn401_WhenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/api/users"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    public void testUpdateUser_InvalidData() {
+    @WithMockUser(roles = "USER")
+    void getAllUsers_ShouldReturn403_WhenUserLacksAuthority() throws Exception {
+        mockMvc.perform(get("/api/users"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "TEAM_LEADER")
+    void deleteUser_ShouldReturn404_WhenUserDoesNotExist() throws Exception {
         // Arrange
-        Long userId = 400L;
-        String invalidUser = "existing_user";
-
-        UserRequest mockRequest = new UserRequest();
-        mockRequest.setEmail("new@test.com");
-        mockRequest.setUsername(invalidUser);
-
-        NoSuchElementException mockException = new NoSuchElementException("Cannot find the user with id: " + userId);
-
-        when(userService.updateUser(userId, mockRequest)).thenThrow(mockException);
+        doThrow(new UserNotFoundException(99L)).when(userService).deleteUser(99L);
 
         // Act & Assert
-        NoSuchElementException thrown = assertThrows(
-                NoSuchElementException.class,
-                () -> userController.updateUser(userId, mockRequest),
-                "Expected updateUser to throw NoSuchElementException"
-        );
+        mockMvc.perform(delete("/api/users/99"))
+                .andExpect(status().isNotFound());
+    }
 
-        assertEquals("Cannot find the user with id: " + userId, thrown.getMessage(), "Exception message should match");
-        verify(userService).updateUser(userId, mockRequest);
+    // --- FUNCITONAL TESTS (200/204) ---
 
+    @Test
+    @WithMockUser(roles = "TEAM_LEADER")
+    void getAllusers_ShouldReturn200AndPaginatedData() throws Exception {
+        // Arrange
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("username"));
+        Page<UserResponse> mockPage = new PageImpl<>(Collections.singletonList(mockUserResponse), pageable, 1);
+
+        // Mock
+        when(userService.getAllUsers(any(PaginationRequest.class))).thenReturn(mockPage);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/users")
+                    .param("page", "0")
+                    .param("size", "10")
+                    .param("sortBy", "username")
+                    .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].username").value("newuser"))
+                .andExpect(jsonPath("$.totalPages").value(1));
+
+        verify(userService, times(1)).getAllUsers(any(PaginationRequest.class));
+    }
+
+    @Test
+    @WithMockUser(roles = "TEAM_LEADER")
+    void findUserById_ShouldReturn200AndUser() throws Exception {
+        // Arrange
+        when(userService.findUserById(2L)).thenReturn(mockUserResponse);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/users/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(2L))
+                .andExpect(jsonPath("$.username").value("newuser"));
+    }
+
+    @Test
+    @WithMockUser(roles = "TEAM_LEADER")
+    void updateUser_ShouldReturn200AndUpdatedUser() throws Exception {
+        // Arrange
+        UserResponse updatedResponse = new UserResponse(2L, "updated_name", "new@example.com", Role.USER, true, true, Collections.emptyList());
+
+        when(userService.updateUser(eq(2L), any(UserRequest.class))).thenReturn(updatedResponse);
+
+        // Act & Assert
+        mockMvc.perform(put("/api/users/2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(validUserRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("updated_name"));
+    }
+
+    @Test
+    @WithMockUser(roles = "TEAM_LEADER")
+    void updateRole_ShouldReturn20AndUpdatedRole() throws Exception {
+        // Arrange
+        UserResponse leaderResponse = new UserResponse(2L, "newuser", "new@example.com", Role.TEAM_LEADER, true, true, Collections.emptyList());
+
+        when(userService.updateRole(eq(2L), any(RoleUpdateRequest.class))).thenReturn(leaderResponse);
+
+        // Act & Assert
+        mockMvc.perform(put("/api/users/2/role")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(asJsonString(roleUpdateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("TEAM_LEADER"));
+    }
+
+    @Test
+    @WithMockUser(roles = "TEAM_LEADER")
+    void deleteUser_ShouldReturn204_WhenUserIsDeleted() throws Exception {
+        // Arrange
+        doNothing().when(userService).deleteUser(2L);
+
+        // Act & Assert
+        mockMvc.perform(delete("/api/users/2"))
+                .andExpect(status().isNoContent());
     }
 }

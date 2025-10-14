@@ -66,7 +66,7 @@ public class User implements UserDetails {
         return true;
     }
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "user", cascade = {CascadeType.PERSIST, CascadeType.MERGE}) // **FIXED LINE**
     @ToString.Exclude
     @JsonManagedReference
     private List<Task> tasks = new ArrayList<>();
@@ -90,7 +90,9 @@ public class User implements UserDetails {
     @Override
     @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.name()));
+
+        String authority = "ROLE_" + role.name();
+        return List.of(new SimpleGrantedAuthority(authority));
     }
 
     @Override

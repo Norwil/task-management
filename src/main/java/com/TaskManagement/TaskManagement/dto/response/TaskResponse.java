@@ -1,11 +1,11 @@
 package com.TaskManagement.TaskManagement.dto.response;
 
-
-
 import com.TaskManagement.TaskManagement.entity.Priority;
 
-import com.TaskManagement.TaskManagement.entity.User;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -17,7 +17,10 @@ public class TaskResponse {
     private String title;
     private String description;
     private boolean completed;
-    private String dueDate; // String for simpler JSON formatting
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime dueDate;
+
     private Priority priority;
     private AssignedUserResponseDTO assignedUser;
 }

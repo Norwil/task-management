@@ -4,9 +4,6 @@ import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
 import com.TaskManagement.TaskManagement.dto.response.AssignedUserResponseDTO;
 import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
 import com.TaskManagement.TaskManagement.entity.Task;
-import com.TaskManagement.TaskManagement.entity.User;
-import com.TaskManagement.TaskManagement.repository.TaskRepository;
-import com.TaskManagement.TaskManagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,8 +15,6 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class TaskMapper {
-    private final UserRepository userRepository;
-
 
     /**
      * Convert TaskRequest -> Entity
@@ -29,12 +24,7 @@ public class TaskMapper {
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setPriority(request.getPriority());
-        task.setDueDate(LocalDateTime.parse(request.getDueDate()));        // Parse String to LocalDateTime
-        if (request.getUserId() != null) {
-            User user = userRepository.findById(request.getUserId())
-                    .orElseThrow(() -> new NoSuchElementException("User not found with id: " + request.getUserId()));
-            task.setUser(user);
-        }
+        task.setDueDate(request.getDueDate());
 
         return task;
     }
@@ -50,7 +40,7 @@ public class TaskMapper {
         response.setTitle(task.getTitle());
         response.setDescription(task.getDescription());
         response.setPriority(task.getPriority());
-        response.setDueDate(String.valueOf(task.getDueDate()));
+        response.setDueDate(task.getDueDate());
         response.setCompleted(task.isCompleted());
 
         // Only set assigned user if task has a user

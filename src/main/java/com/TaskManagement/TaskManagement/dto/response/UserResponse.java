@@ -16,5 +16,5 @@ public class UserResponse {
     private Role role;
     private boolean enabled;
     private boolean accountNonLocked;
-    private List<TaskResponse> tasks;
+    private List<Long> taskIds;
 }
