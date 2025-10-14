@@ -2,11 +2,14 @@ package com.TaskManagement.TaskManagement.dto.request;
 
 import com.TaskManagement.TaskManagement.entity.Priority;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -23,9 +26,9 @@ public class TaskRequest {
     @NotNull(message = "Priority cannot be null")
     private Priority priority;
 
-    @NotNull(message = "User ID cannot be null")
     private Long userId;
 
     @NotNull(message = "Due date cannot be null")
-    private String dueDate;  // String for JSON input, parse to LocalDateTime
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    private LocalDateTime dueDate;  // String for JSON input, parse to LocalDateTime
 }

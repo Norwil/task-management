@@ -1,5 +1,6 @@
 package com.TaskManagement.TaskManagement.service;
 
+import com.TaskManagement.TaskManagement.dto.request.PaginationRequest;
 import com.TaskManagement.TaskManagement.dto.request.RoleUpdateRequest;
 import com.TaskManagement.TaskManagement.dto.request.UserRequest;
 import com.TaskManagement.TaskManagement.dto.response.UserResponse;
@@ -24,6 +25,15 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+
+    // Defensive Validation Helper
+    private void validatePageableOffset(Pageable pageable) {
+        if (pageable.getOffset() > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Pagination offset is too large. Page (" + pageable.getPageNumber()
+                + ") times size (" + pageable.getPageSize()
+                + ") exceeds the maximum supported offset.");
+        }
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -58,15 +68,18 @@ public class UserService implements UserDetailsService {
 
     /**
      * Get all users
-     * @param pageable pagination and sorting parameters
+     * @param request pagination and sorting parameters
      * @return a page of users
      * @throws IllegalArgumentException if pageable is null
      */
     @Transactional(readOnly = true)
-    public Page<UserResponse> getAllUsers(Pageable pageable) {
-        if (pageable == null) {
+    public Page<UserResponse> getAllUsers(PaginationRequest request) {
+        if (request == null) {
             throw new IllegalArgumentException("Pageable cannot be null");
         }
+        Pageable pageable = request.toPageable();
+        validatePageableOffset(pageable);
+
         Page<User> userPage = userRepository.findAll(pageable);
 
         return userPage.map(userMapper::toResponseDTO);

@@ -1,17 +1,13 @@
 package com.TaskManagement.TaskManagement.controller;
 
+import com.TaskManagement.TaskManagement.dto.request.PaginationRequest;
 import com.TaskManagement.TaskManagement.dto.request.RoleUpdateRequest;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.TaskManagement.TaskManagement.dto.request.UserRequest;
 import com.TaskManagement.TaskManagement.dto.response.UserResponse;
@@ -19,9 +15,6 @@ import com.TaskManagement.TaskManagement.dto.response.UserResponse;
 import com.TaskManagement.TaskManagement.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.web.bind.annotation.*;
 
 
 @RestController
@@ -33,16 +26,18 @@ public class UserController {
     private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEADER')")
     public ResponseEntity<Page<UserResponse>> getAllUsers(
-            @PageableDefault(page = 0, size = 10) Pageable pageable) {
-        log.info("fetching users with pagination: page={}, size={}", pageable.getPageNumber(), pageable.getPageSize());
-        Page<UserResponse> response = userService.getAllUsers(pageable);
+            @Valid PaginationRequest paginationRequest) {
+        log.info("fetching users with pagination: page={}, size={}", paginationRequest.getPage(), paginationRequest.getSize());
+
+        Page<UserResponse> response = userService.getAllUsers(paginationRequest);
+
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEADER')")
     public ResponseEntity<UserResponse> findUserById(@PathVariable Long id) {
         log.info("Fetching user with id: {}", id);
 
@@ -50,7 +45,7 @@ public class UserController {
     }
 
     @GetMapping("/username/{username}")
-    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEADER')")
     public ResponseEntity<UserResponse> getUserByUsername(@PathVariable String username) {
         log.info("Fetching user with username: " + username);
 
@@ -58,9 +53,8 @@ public class UserController {
     }
 
 
-
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEADER')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
             @RequestBody @Valid UserRequest userRequest) {
@@ -71,7 +65,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/role")
-    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEADER')")
     public ResponseEntity<UserResponse> updateRole(
             @PathVariable Long id,
             @RequestBody @Valid RoleUpdateRequest request) {
@@ -82,12 +76,10 @@ public class UserController {
 
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TEAM_LEADER')")
+    @PreAuthorize("hasAnyRole('ROLE_TEAM_LEADER')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         log.info("Deleting user with id: {}", id);
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
-
-
 }

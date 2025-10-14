@@ -1,18 +1,15 @@
 package com.TaskManagement.TaskManagement.service;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+
 import java.util.NoSuchElementException;
 
+import com.TaskManagement.TaskManagement.dto.request.PaginationRequest;
 import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
 import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
 import com.TaskManagement.TaskManagement.entity.User;
 import com.TaskManagement.TaskManagement.mapper.TaskMapper;
 import com.TaskManagement.TaskManagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,17 +27,28 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
 
+    private void validatePageableOffset(Pageable pageable) {
+        if (pageable.getOffset() > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Pagination offset is too large. Page (" + pageable.getPageNumber()
+                    + ") times size (" + pageable.getPageSize()
+                    + ") exceeds the maximum supported offset.");
+        }
+    }
+
     /**
      * Retrieves all tasks with pagination and sorting
-     * @param pageable pagination and sorting parameters
+     * @param request pageable pagination and sorting parameters
      * @return a page of tasks
      * @throws IllegalArgumentException if pageable is null
      */
     @Transactional(readOnly = true)
-    public Page<TaskResponse> findAll(Pageable pageable) {
-        if (pageable == null) {
-            throw new IllegalArgumentException("Pageable cannot be null");
+    public Page<TaskResponse> findAll(PaginationRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Pagination request cannot be null");
         }
+        Pageable pageable = request.toPageable();
+        validatePageableOffset(pageable);
+
         Page<Task> page = taskRepository.findAll(pageable);
         Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
         return response;
@@ -49,18 +57,17 @@ public class TaskService {
     /**
      * Retrieves tasks by title or description containing the query with pagination
      * @param query the query to search for
-     * @param pageable pagination and sorting parameters
+     * @param request pagination and sorting parameters
      * @return a page of tasks that match the query
      * @throws IllegalArgumentException if the query is null or empty, or if pageable is null
      */
     @Transactional(readOnly = true)
-    public Page<TaskResponse> search(String query, Pageable pageable) {
+    public Page<TaskResponse> search(String query, PaginationRequest request) {
         if (query == null || query.trim().isEmpty()) {
             throw new IllegalArgumentException("Search query cannot be empty");
         }
-        if (pageable == null) {
-            throw new IllegalArgumentException("Pageable cannot be null");
-        }
+        Pageable pageable = request.toPageable();
+        validatePageableOffset(pageable);
 
         Page<Task> page = taskRepository.searchByTitleOrDescriptionContainingIgnoreCase(query, pageable);
         Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
@@ -95,11 +102,13 @@ public class TaskService {
             throw new IllegalArgumentException("Task request cannot be null");
         }
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new NoSuchElementException("User not found with id: " + request.getUserId()));
-
         Task taskToSave = taskMapper.toEntity(request);
-        taskToSave.setUser(user);
+
+        if (request.getUserId() != null) {
+            User user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new NoSuchElementException("User not found with id: " + request.getUserId()));
+            taskToSave.setUser(user);
+        }
 
         Task savedTask = taskRepository.save(taskToSave);
         return taskMapper.toResponseDTO(savedTask);
@@ -109,16 +118,26 @@ public class TaskService {
      * Updates a task
      * @param request the task to save
      * @return the response
+     * @throws NoSuchElementException if the Task or the assigned User is not found.
      */
     public TaskResponse update(Long id, TaskRequest request) {
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id));
-        task.setUser(userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new NoSuchElementException("Cannot find the user with id: " + id)));
+                .orElseThrow(() -> new NoSuchElementException("Task not found with id: " + id)); // Corrected exception message
+
+        if (request.getUserId() != null) {
+            // New user ID provided, look up the user
+            User user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new NoSuchElementException("User not found with id: " + request.getUserId())); // Corrected exception message
+            task.setUser(user);
+        } else {
+            // User ID is null in request: unassign the task
+            task.setUser(null);
+        }
+
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
-        task.setDueDate(LocalDateTime.parse(request.getDueDate()));
         task.setPriority(request.getPriority());
+        task.setDueDate(request.getDueDate()); // Direct assignment from LocalDateTime DTO
 
 
         Task savedTask = taskRepository.save(task);
@@ -140,16 +159,21 @@ public class TaskService {
     /**
      * Retrieves tasks by completion status with pagination
      * @param completed the completion status to filter by
-     * @param pageable pagination and sorting parameters
+     * @param request pagination and sorting parameters
      * @return a page of tasks with the specified completion status
      * @throws IllegalArgumentException if pageable is null
      */
     @Transactional(readOnly = true)
-    public Page<TaskResponse> findByCompleted(boolean completed, Pageable pageable) {
-        if (pageable == null) {
-            throw new IllegalArgumentException("Pageable cannot be null");
+    public Page<TaskResponse> findByCompleted(boolean completed, PaginationRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Pagination request cannot be null");
         }
+
+        Pageable pageable = request.toPageable();
+        validatePageableOffset(pageable);
+
         Page<Task> page = taskRepository.findByCompleted(completed, pageable);
+
         Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);
         return response;
     }
@@ -157,18 +181,20 @@ public class TaskService {
     /**
      * Retrieves tasks by priority with pagination
      * @param priority the priority to filter by
-     * @param pageable pagination and sorting parameters
+     * @param request pagination and sorting parameters
      * @return a page of tasks with the specified priority
      * @throws IllegalArgumentException if pageable is null
      */
     @Transactional(readOnly = true)
-    public Page<TaskResponse> findByPriority(Priority priority, Pageable pageable) {
+    public Page<TaskResponse> findByPriority(Priority priority, PaginationRequest request) {
         if (priority == null) {
             throw new IllegalArgumentException("Priority cannot be null.");
         }
-        if (pageable == null) {
+        if (request == null) {
             throw new IllegalArgumentException("Pageable cannot be null");
         }
+        Pageable pageable = request.toPageable();
+        validatePageableOffset(pageable);
 
         Page<Task> page = taskRepository.findByPriority(priority, pageable);
         Page<TaskResponse> response = page.map(taskMapper::toResponseDTO);

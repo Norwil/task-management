@@ -1,11 +1,10 @@
 package com.TaskManagement.TaskManagement.mapper;
 
-import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
 import com.TaskManagement.TaskManagement.dto.request.UserRequest;
 import com.TaskManagement.TaskManagement.dto.response.UserResponse;
 import com.TaskManagement.TaskManagement.entity.Role;
+import com.TaskManagement.TaskManagement.entity.Task;
 import com.TaskManagement.TaskManagement.entity.User;
-import com.TaskManagement.TaskManagement.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +14,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserMapper {
 
-    private final TaskMapper taskMapper;
 
     public User toEntity(UserRequest request) {
         if (request == null) return null;
@@ -40,10 +38,10 @@ public class UserMapper {
         response.setRole(user.getRole());
         response.setEnabled(user.isEnabled());
         response.setAccountNonLocked(user.isAccountNonLocked());
-        response.setTasks(user.getTasks().stream()
-                .map(taskMapper::toResponseDTO)
-                .collect(Collectors.toList()));
 
+        response.setTaskIds(user.getTasks().stream()
+                .map(Task::getId)
+                .collect(Collectors.toList()));
         return response;
     }
 }

@@ -3,8 +3,6 @@ package com.TaskManagement.TaskManagement.repository;
 
 import java.util.List;
 
-
-import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,7 +20,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
      * Finds all tasks with pagination and sorting
      */
     Page<Task> findAll(Pageable pageable);
-    
+
     /**
      * Finds tasks by priority with pagination and sorting
      * @param priority the priority to filter by
@@ -30,15 +28,16 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
      * @return page of tasks with the specified priority
      */
     Page<Task> findByPriority(Priority priority, Pageable pageable);
-    
+
     /**
      * Finds tasks by completion status with pagination and sorting
      * @param completed the completion status to filter by
      * @param pageable pagination and sorting parameters
      * @return page of tasks with the specified completion status
      */
+    // *** FIX IS HERE: Changed PaginationRequest to Pageable ***
     Page<Task> findByCompleted(boolean completed, Pageable pageable);
-    
+
     /**
      * Searches tasks by title or description containing the given query (case-insensitive)
      * with pagination and sorting
@@ -56,7 +55,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>  {
      * @return page of tasks for the specified user
      */
     Page<Task> findByUserId(Long id, Pageable pageable);
-    
+
     // Keep the non-paginated version for backward compatibility
     List<Task> findByUserId(Long id);
 }

@@ -1,5 +1,7 @@
 package com.TaskManagement.TaskManagement.service;
 
+
+import com.TaskManagement.TaskManagement.dto.request.PaginationRequest;
 import com.TaskManagement.TaskManagement.dto.request.RoleUpdateRequest;
 import com.TaskManagement.TaskManagement.dto.request.UserRequest;
 import com.TaskManagement.TaskManagement.dto.response.UserResponse;
@@ -11,276 +13,247 @@ import com.TaskManagement.TaskManagement.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
+
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
-
     @Mock
     private UserMapper userMapper;
-
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private PaginationRequest mockPaginationRequest;
 
     @InjectMocks
     private UserService userService;
 
-    @Captor
-    private ArgumentCaptor<User> userCaptor;
-
     private User testUser;
     private UserRequest testUserRequest;
     private UserResponse testUserResponse;
-    private final Long TEST_USER_ID = 1L;
-    private final String TEST_USERNAME = "testuser";
-    private final String TEST_EMAIL = "test@example.com";
-    private final String TEST_PASSWORD = "password123";
-    private final String ENCODED_PASSWORD = "encodedPassword123";
-
-    private User userToSave;
-    private User userAfterSave;
+    private RoleUpdateRequest roleUpdateRequest;
 
     @BeforeEach
     void setUp() {
-        // Setup test data
         testUser = new User();
-        testUser.setId(TEST_USER_ID);
-        testUser.setUsername(TEST_USERNAME);
-        testUser.setEmail(TEST_EMAIL);
-        testUser.setPassword(ENCODED_PASSWORD);
+        testUser.setId(1L);
+        testUser.setUsername("testuser");
+        testUser.setEmail("test@example.com");
+        testUser.setPassword("rawPassword123");
         testUser.setRole(Role.USER);
+        testUser.setTasks((new ArrayList<>()));
 
-        testUserRequest = new UserRequest();
-        testUserRequest.setUsername(TEST_USERNAME);
-        testUserRequest.setEmail(TEST_EMAIL);
-        testUserRequest.setPassword(TEST_PASSWORD);
+        testUserRequest = new UserRequest(
+                "testuser",
+                "rawPassword123",
+                "test@example.com"
+        );
 
-        testUserResponse = new UserResponse();
-        testUserResponse.setId(TEST_USER_ID);
-        testUserResponse.setUsername(TEST_USERNAME);
-        testUserResponse.setEmail(TEST_EMAIL);
-        testUserResponse.setRole(Role.USER);
+        testUserResponse = new UserResponse(
+                1L,
+                "testuser",
+                "test@example.com",
+                Role.USER,
+                true,
+                true,
+                Collections.emptyList()
+        );
 
-        userToSave = new User();
-        userToSave.setUsername(TEST_USERNAME);
-        userToSave.setEmail(TEST_EMAIL);
-        userToSave.setPassword(TEST_PASSWORD);
-        userToSave.setRole(Role.USER);
-
-        userAfterSave = new User();
-        userAfterSave.setId(TEST_USER_ID);
-        userAfterSave.setUsername(TEST_USERNAME);
-        userAfterSave.setEmail(TEST_EMAIL);
-        userAfterSave.setPassword(ENCODED_PASSWORD);
-        userAfterSave.setRole(Role.USER);
-
+        roleUpdateRequest = new RoleUpdateRequest(Role.TEAM_LEADER);
     }
 
+    // --- SECURITY CONTRACT (UserDetailsService) TESTS ---
+
     @Test
-    void loadUserByUsername_WhenUserExists_ReturnsUserDetails() {
+    void loadUserByUsername_ShouldReturnUserDetails_WhenUserExists() {
         // Arrange
-        when(userRepository.findByUsername(TEST_USERNAME)).thenReturn(Optional.of(testUser));
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
 
         // Act
-        var result = userService.loadUserByUsername(TEST_USERNAME);
+        UserDetails result = userService.loadUserByUsername("testuser");
 
         // Assert
         assertNotNull(result);
-        assertEquals(TEST_USERNAME, result.getUsername());
-        verify(userRepository, times(1)).findByUsername(TEST_USERNAME);
+        assertEquals("testuser", result.getUsername());
+        assertTrue(result.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
+        verify(userRepository, times(1)).findByUsername("testuser");
     }
 
     @Test
-    void loadUserByUsername_WhenUserNotExists_ThrowException() {
+    void loadUserByUsername_ShouldThrowException_WhenUserDoesNotExist() {
         // Arrange
         when(userRepository.findByUsername(anyString())).thenReturn(Optional.empty());
 
-        // Act & Asser
-        assertThrows(UsernameNotFoundException.class, () ->
-                userService.loadUserByUsername("nonexistent")
-        );
+        // Act & Assert
+        assertThrows(UsernameNotFoundException.class,
+                () -> userService.loadUserByUsername("nonexistent"));
     }
 
+    // --- REGISTRATION & BASIC CRUD TESTS ---
+
     @Test
-    void getUserByUsername_WhenUserExists_ReturnsuserResponse() {
+    void registerUser_ShouldHashPasswordAndSaveUser() {
         // Arrange
-        when(userRepository.findByUsername(TEST_USERNAME)).thenReturn(Optional.of(testUser));
+        when(userMapper.toEntity(testUserRequest)).thenReturn(testUser);
+        when(passwordEncoder.encode("rawPassword123")).thenReturn("hashedPassword");
+        when(userRepository.save(testUser)).thenReturn(testUser);
         when(userMapper.toResponseDTO(testUser)).thenReturn(testUserResponse);
 
         // Act
-        UserResponse response = userService.getUserByUsername(TEST_USERNAME);
+        UserResponse result = userService.registerUser(testUserRequest);
 
         // Assert
-        assertNotNull(response);
-        assertEquals(TEST_USERNAME, response.getUsername());
-        verify(userRepository).findByUsername(TEST_USERNAME);
+        assertEquals(testUserResponse.getUsername(), result.getUsername());
+        verify(passwordEncoder, times(1)).encode("rawPassword123");
+        verify(userRepository, times(1)).save(testUser);
     }
 
     @Test
-    void getAllusers_ReturnsPageOfUsers() {
+    void findUserById_ShouldReturnUser_WhenIdExists() {
         // Arrange
-        Pageable pageable = PageRequest.of(0, 10);
-        List<User> users = Arrays.asList(testUser);
-        Page<User> userPage = new PageImpl<>(users, pageable, users.size());
-
-        when(userRepository.findAll(pageable)).thenReturn(userPage);
-        when(userMapper.toResponseDTO(any(User.class))).thenReturn(testUserResponse);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(userMapper.toResponseDTO(testUser)).thenReturn(testUserResponse);
 
         // Act
-        Page<UserResponse> result = userService.getAllUsers(pageable);
+        UserResponse result = userService.findUserById(1L);
 
         // Assert
         assertNotNull(result);
-        assertEquals(1, result.getTotalElements());
-        verify(userRepository).findAll(pageable);
+        assertEquals(1L, result.getId());
     }
 
     @Test
-    void findUserById_WhenUserNotExists_ThrowsException() {
-        // Arrange
-        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-        // Act && Assert
-        assertThrows(UserNotFoundException.class, () ->
-                userService.findUserById(999L)
-        );
-    }
-
-    @Test
-    void updateUser_WithValidData_ReturnsUpdatedUser() {
-        // Arrange
-        UserRequest updateRequest = new UserRequest();
-        updateRequest.setUsername("updateduser");
-        updateRequest.setEmail("updated@example.com");
-        updateRequest.setPassword("newpassword");
-
-        User updatedUser = new User();
-        updatedUser.setId(TEST_USER_ID);
-        updatedUser.setUsername("updateduser");
-        updatedUser.setEmail("updated@example.com");
-        updatedUser.setPassword(ENCODED_PASSWORD);
-
-        UserResponse updatedResponse = new UserResponse();
-        updatedResponse.setId(TEST_USER_ID);
-        updatedResponse.setUsername("updateduser");
-        updatedResponse.setEmail("updated@example.com");
-
-        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
-        when(userRepository.save(any(User.class))).thenReturn(updatedUser);
-        when(userMapper.toResponseDTO(any(User.class))).thenReturn(updatedResponse);
-
-        // Act
-        UserResponse response = userService.updateUser(TEST_USER_ID, updateRequest);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals("updateduser", response.getUsername());
-        assertEquals("updated@example.com", response.getEmail());
-        verify(userRepository).findById(TEST_USER_ID);
-        verify(userRepository).save(userCaptor.capture());
-        User savedUser = userCaptor.getValue();
-        assertEquals("updateduser", savedUser.getUsername());
-    }
-
-    @Test
-    void updateRole_WithValidData_UpdatesUserRole() {
-        // Arrange
-        RoleUpdateRequest roleUpdateRequest = new RoleUpdateRequest();
-        roleUpdateRequest.setRole(Role.TEAM_LEADER);
-
-        User adminUser = new User();
-        adminUser.setId(TEST_USER_ID);
-        adminUser.setUsername(TEST_USERNAME);
-        adminUser.setEmail(TEST_EMAIL);
-        adminUser.setRole(Role.TEAM_LEADER);
-
-        UserResponse adminResponse = new UserResponse();
-        adminResponse.setId(TEST_USER_ID);
-        adminResponse.setRole(Role.TEAM_LEADER);
-
-        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
-        when(userRepository.save(any(User.class))).thenReturn(adminUser);
-        when(userMapper.toResponseDTO(any(User.class))).thenReturn(adminResponse);
-
-        // Act
-        UserResponse response = userService.updateRole(TEST_USER_ID, roleUpdateRequest);
-
-        // Assert
-        assertNotNull(response);
-        assertEquals(Role.TEAM_LEADER, response.getRole());
-        verify(userRepository).findById(TEST_USER_ID);
-        verify(userRepository).save(userCaptor.capture());
-        User savedUser = userCaptor.getValue();
-        assertEquals(Role.TEAM_LEADER, savedUser.getRole());
-    }
-
-    @Test
-    void deleteUser_WhenUser_exists_DeleteUser() {
-        // Arrange
-        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
-        doNothing().when(userRepository).deleteById(TEST_USER_ID);
-
-        // Act
-        userService.deleteUser(TEST_USER_ID);
-
-        // Assert
-        verify(userRepository).findById(TEST_USER_ID);
-        verify(userRepository).deleteById(TEST_USER_ID);
-    }
-
-    @Test
-    void deleteUser_WhenUserNotExists_ThrowsException() {
+    void findUserById_ShouldThrowUserNotFoundException_WhenIdDoesNotExist() {
         // Arrange
         when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(UserNotFoundException.class, () ->
-                userService.deleteUser(999L)
+        assertThrows(UserNotFoundException.class, () -> userService.findUserById(99L));
+    }
+
+    // --- UPDATE TESTS ---
+
+    @Test
+    void updateUser_ShouldUpdateUsernameAndEmail() {
+        // Arrange
+        UserRequest updateRequest = new UserRequest(
+                "new_username",
+                "password_is_ignored",
+                "new@email.com"
         );
-        verify(userRepository, never()).deleteById(anyLong());
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+        when(userMapper.toResponseDTO(testUser)).thenReturn(testUserResponse);
+
+        // Act
+        userService.updateUser(1L, updateRequest);
+
+        // Assert
+        assertEquals("new_username", testUser.getUsername());
+        assertEquals("new@email.com", testUser.getEmail());
+        assertEquals("rawPassword123", testUser.getPassword());
+        verify(userRepository, times(1)).save(testUser);
     }
 
     @Test
-    void registerUser_WithValidRequest_ReturnUserResponse() {
+    void updateRole_ShouldChangeUserRole() {
         // Arrange
-        when(passwordEncoder.encode(TEST_PASSWORD)).thenReturn(ENCODED_PASSWORD);
-        when(userMapper.toEntity(testUserRequest)).thenReturn(userToSave);
-        when(userRepository.save(userToSave)).thenReturn(userAfterSave);
-        when(userMapper.toResponseDTO(userAfterSave)).thenReturn(testUserResponse);
+        User userBefore = testUser;
+        User userAfter = testUser;
+        userAfter.setRole(Role.TEAM_LEADER);
+
+        when(userRepository.findById(1l)).thenReturn(Optional.of(userBefore));
+        when(userRepository.save(userBefore)).thenReturn(userAfter);
+        when(userMapper.toResponseDTO(userAfter)).thenReturn(testUserResponse);
 
         // Act
-        UserResponse response = userService.registerUser(testUserRequest);
+        userService.updateRole(1L, roleUpdateRequest);
 
         // Assert
-        assertNotNull(response);
-        assertEquals(TEST_USERNAME, response.getUsername());
-        verify(passwordEncoder).encode(TEST_PASSWORD);
-        verify(userRepository).save(userCaptor.capture());
-        User capturedUser = userCaptor.getValue();
-        assertEquals(ENCODED_PASSWORD, capturedUser.getPassword());
+        assertEquals(Role.TEAM_LEADER, userBefore.getRole());
+        verify(userRepository, times(1)).save(userBefore);
+    }
+
+    // --- DELETE TESTS ---
+
+    @Test
+    void deleteUser_ShouldCallRepositoryDelete_WhenUserExists() {
+        // Arrange
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        // Act
+        userService.deleteUser(1L);
+
+        // Assert
+        verify(userRepository, times(1)).deleteById(1L);
+    }
+
+    @Test
+    void deleteUser_ShouldThrowUserNotFoundException_WhenUserDoesNotExist() {
+        // Arrange
+        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(UserNotFoundException.class, () -> userService.deleteUser(99L));
+        verify(userRepository, never()).deleteById(anyLong());
+    }
+
+    // --- PAGINATION TESTS ---
+
+    @Test
+    void getAllUsers_ShouldReturnPaginatedUsers_WhenRequestIsValid() {
+        // Arrange
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("username"));
+
+        Page<User> userPage = new PageImpl<>(Collections.singletonList(testUser), pageable, 1);
+
+        when(mockPaginationRequest.toPageable()).thenReturn(pageable);
+        when(userRepository.findAll(pageable)).thenReturn(userPage);
+        when(userMapper.toResponseDTO(any(User.class))).thenReturn(testUserResponse);
+
+        // Act
+        Page<UserResponse> result = userService.getAllUsers(mockPaginationRequest);
+
+        // Assert
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.getTotalElements());
+        verify(userRepository, times(1)).findAll(pageable);
+
+        verify(mockPaginationRequest, times(1)).toPageable();
+    }
+
+    @Test
+    void getAllUser_ShouldThrowIllegalARgumentException_WhenOffsetIsTooLarge() {
+        // Arrange
+        Pageable overflowPageable = PageRequest.of(2, 2_147_483_647, Sort.by("id"));
+
+        when(mockPaginationRequest.toPageable()).thenReturn(overflowPageable);
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> userService.getAllUsers(mockPaginationRequest),
+                "Should throw IllegalArgumentException for offset overflow"
+        );
+
+        verify(userRepository, never()).findAll(any(Pageable.class));
     }
 
 }
