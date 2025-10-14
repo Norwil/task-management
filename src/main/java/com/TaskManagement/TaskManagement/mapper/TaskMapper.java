@@ -51,12 +51,17 @@ public class TaskMapper {
         response.setDescription(task.getDescription());
         response.setPriority(task.getPriority());
         response.setDueDate(String.valueOf(task.getDueDate()));
+        response.setCompleted(task.isCompleted());
 
-        AssignedUserResponseDTO assignedUser = new AssignedUserResponseDTO();
-        assignedUser.setId(task.getUser().getId());
-        assignedUser.setRole(task.getUser().getRole());
-        assignedUser.setUsername(task.getUser().getUsername());
-        response.setAssignedUser(assignedUser);
+        // Only set assigned user if task has a user
+        if (task.getUser() != null) {
+            AssignedUserResponseDTO assignedUser = new AssignedUserResponseDTO();
+            assignedUser.setId(task.getUser().getId());
+            assignedUser.setRole(task.getUser().getRole());
+            assignedUser.setUsername(task.getUser().getUsername());
+            response.setAssignedUser(assignedUser);
+        }
+        
         return response;
     }
 
