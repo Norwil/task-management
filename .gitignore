@@ -39,6 +39,8 @@ bin/
 
 # Logs
 *.log
+logs/
+
 
 # Application Properties
 application*.properties
@@ -51,6 +53,9 @@ application*.yaml
 
 # Environment variables
 .env
+.env.local
+.env.*.local
+
 
 # Credentials
 *.key
@@ -58,3 +63,19 @@ application*.yaml
 *.jks
 *.keystore
 *.truststore
+
+# Docker
+**/target/
+**/build/
+**/logs/
+**/*.log
+**/.env
+**/.dockerignore
+**/docker-compose.override.yml
+**/target/docker/
+docker-compose.override.yml
+
+# Local development
+src/main/resources/application-*.yml
+!src/main/resources/application.yml
+
