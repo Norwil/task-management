@@ -6,8 +6,7 @@
 [![Docker](https://img.shields.io/badge/Docker-20.10+-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-A highly secure and production-ready RESTful API for managing user tasks, featuring role-based authorization, comprehensive unit testing, and containerized deployment with PostgreSQL.
-
+A production-ready RESTful API for managing user tasks. This project demonstrates advanced backend principles including decoupled, event-driven architecture (Observer pattern), asynchronous processing, role-based security, comprehensive testing, and containerized deployment.
 ## 🎥 API Demo
 
 ![Task Management API Demo](swagger-demo.gif)
@@ -17,13 +16,14 @@ A highly secure and production-ready RESTful API for managing user tasks, featur
 
 This project showcases mastery of core Java/Spring Ecosystem principles crucial for backend development:
 
-| Category                        | Feature Implemented                         | Technical Skill Demonstrated                                                                                                                                                                            |
-|:--------------------------------|:--------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Security & Authorization**    | **Method-Level Security (`@PreAuthorize`)** | Implemented precise access control, ensuring only `ROLE_TEAM_LEADER` can create, update, or delete tasks. Uses HTTP Basic Auth (JWT Ready).                                                             |
-| **Data Integrity & Efficiency** | **Custom Paginated APIs**                   | Designed robust, efficient pagination using dedicated `PaginationRequest` DTOs, decoupling the API layer from Spring's `Pageable` interface.                                                            |
-| **Testing & Quality**           | **Comprehensive Mockito Testing**           | Achieved full unit test coverage for `TaskService` and `UserService`. Validates complex business logic (e.g., assignment/unassignment, edge-case validation, large offset checks) using isolated mocks. |
-| **Data Modeling**               | **Clean DTO & Mapper Architecture**         | Strict separation between persistence entities (`Task`, `User`) and external contracts (Request/Response DTOs) using dedicated Mapper classes.                                                          |
-| **Deployment & Infrastructure** | **Docker & PostgreSQL Integration**         | Configured a multi-stage, production-ready environment using **Docker Compose** to manage the Spring Boot application and a dedicated **PostgreSQL** database container.                                |
+| Category                        | Feature Implemented                                     | Technical Skill Demonstrated                                                                                                                                                                                                 |
+|:--------------------------------|:--------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Decoupled Architecture**      | **Asynchronous Event Notifications (Observer Pattern)** | Implemented an event-driven design using `ApplicationEventPublisher` and `@EventListener` to decouple `TaskService` and `NotificationService`. Asynchronous events ensure non-blocking task assignment and adherence to SRP. |
+| **Security & Authorization**    | **Method-Level Security (`@PreAuthorize`)**             | Implemented precise access control, ensuring only `ROLE_TEAM_LEADER` can create, update, or delete tasks. Uses HTTP Basic Auth (JWT Ready).                                                                                  |
+| **Data Integrity & Efficiency** | **Custom Paginated APIs**                               | Designed robust, efficient pagination using dedicated `PaginationRequest` DTOs, decoupling the API layer from Spring's `Pageable` interface.                                                                                 |
+| **Testing & Quality**           | **Comprehensive Mockito Testing**                       | Achieved full unit test coverage for `TaskService` and `UserService`. Validates complex business logic (e.g., assignment/unassignment, edge-case validation, large offset checks) using isolated mocks.                      |
+| **Data Modeling**               | **Clean DTO & Mapper Architecture**                     | Strict separation between persistence entities (`Task`, `User`) and external contracts (Request/Response DTOs) using dedicated Mapper classes.                                                                               |
+| **Deployment & Infrastructure** | **Docker & PostgreSQL Integration**                     | Configured a multi-stage, production-ready environment using **Docker Compose** to manage the Spring Boot application and a dedicated **PostgreSQL** database container.                                                     |
 
 ---
 
@@ -94,6 +94,7 @@ Unit tests are used to validate core business logic, ensuring robustness and mai
     * Verifies correct hashing (`UserService`).
     * Verifies complex DTO mapping and entity updates.
     * Confirms proper handling of exceptions (`NoSuchElementException`, `IllegalArgumentException`).
+    * Confirms event-driven logic by verifying `ApplicationPublisher.publishEvent()` is called when a task is assigned (and not called when it isn't).
 * **Tool:** Mockito is used to mock dependencies (`TaskRepository`, `UserRepository`) to guarantee true isolation.
 
 ## 📜 License

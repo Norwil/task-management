@@ -7,12 +7,16 @@ import com.TaskManagement.TaskManagement.dto.request.PaginationRequest;
 import com.TaskManagement.TaskManagement.dto.request.TaskRequest;
 import com.TaskManagement.TaskManagement.dto.response.TaskResponse;
 import com.TaskManagement.TaskManagement.entity.User;
+import com.TaskManagement.TaskManagement.event.TaskAssignedEvent;
 import com.TaskManagement.TaskManagement.mapper.TaskMapper;
 import com.TaskManagement.TaskManagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.TaskManagement.TaskManagement.entity.Priority;
 import com.TaskManagement.TaskManagement.entity.Task;
@@ -26,6 +30,9 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
+
+    private static final Logger log = LoggerFactory.getLogger(TaskService.class);
+    private final ApplicationEventPublisher eventPublisher;
 
     private void validatePageableOffset(Pageable pageable) {
         if (pageable.getOffset() > Integer.MAX_VALUE) {
@@ -103,14 +110,20 @@ public class TaskService {
         }
 
         Task taskToSave = taskMapper.toEntity(request);
+        User assignedUser = null;   // Kepe track of the user
 
         if (request.getUserId() != null) {
-            User user = userRepository.findById(request.getUserId())
+            assignedUser = userRepository.findById(request.getUserId())
                     .orElseThrow(() -> new NoSuchElementException("User not found with id: " + request.getUserId()));
-            taskToSave.setUser(user);
+            taskToSave.setUser(assignedUser);
         }
 
         Task savedTask = taskRepository.save(taskToSave);
+
+        if (assignedUser != null) {
+            publishTaskAssignedEvent(savedTask, assignedUser);
+        }
+
         return taskMapper.toResponseDTO(savedTask);
     }
 
@@ -217,7 +230,7 @@ public class TaskService {
     }
 
     /**
-     * Assign a task to a user
+     * Assign a task to a user, notify
      * @param taskId
      * @param userId
      * @return the updated Task as a TaskResponse DTO
@@ -235,6 +248,8 @@ public class TaskService {
         user.getTasks().add(task);
 
         Task savedTask = taskRepository.save(task);
+
+        publishTaskAssignedEvent(savedTask, user);
 
         return taskMapper.toResponseDTO(savedTask);
     }
@@ -257,5 +272,23 @@ public class TaskService {
         }
 
         taskRepository.save(task);
+    }
+
+    /**
+     * Publish a task assigned event
+     * @param task
+     * @param user
+     */
+    private void publishTaskAssignedEvent(Task task, User user) {
+        TaskAssignedEvent event = new TaskAssignedEvent(
+                task.getId(),
+                task.getTitle(),
+                user.getId(),
+                user.getEmail(),
+                user.getUsername()
+        );
+
+        log.info("Publishing TaskAssignedEvent for task {}", task.getId());
+        eventPublisher.publishEvent(event);
     }
 }

@@ -7,6 +7,7 @@ import com.TaskManagement.TaskManagement.entity.Priority;
 import com.TaskManagement.TaskManagement.entity.Role;
 import com.TaskManagement.TaskManagement.entity.Task;
 import com.TaskManagement.TaskManagement.entity.User;
+import com.TaskManagement.TaskManagement.event.TaskAssignedEvent;
 import com.TaskManagement.TaskManagement.mapper.TaskMapper;
 import com.TaskManagement.TaskManagement.repository.TaskRepository;
 import com.TaskManagement.TaskManagement.repository.UserRepository;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
 
 import java.time.LocalDateTime;
@@ -34,6 +36,8 @@ public class TaskServiceTest {
     private UserRepository userRepository;
     @Mock
     private TaskMapper taskMapper;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private TaskService taskService;
@@ -92,6 +96,7 @@ public class TaskServiceTest {
         assertEquals(10L, result.getId());
         verify(userRepository, times(1)).findById(1L);
         verify(taskRepository, times(1)).save(testTask);
+        verify(eventPublisher, times(1)).publishEvent(any(TaskAssignedEvent.class));
     }
 
     @Test
@@ -112,6 +117,7 @@ public class TaskServiceTest {
         verify(userRepository, never()).findById(anyLong());
         verify(taskRepository, times(1)).save(testTask);
         assertNull(testTask.getUser());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
